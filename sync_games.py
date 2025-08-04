@@ -126,7 +126,7 @@ def main():
         print(f"Fetching games {offset} - {offset + LIMIT_PER_REQUEST} ...")
         games = fetch_games_from_igdb(offset=offset, limit=LIMIT_PER_REQUEST)
         transformed_games = [transform_game(game) for game in games]
-        upload_games_to_firestore(games)
+        upload_games_to_firestore(transformed_games)
 
     print("🎉 Done!")
 
