@@ -107,6 +107,7 @@ def upload_games_to_firestore(games):
         batch.commit()
         print(f"Committed final batch of {count % 500} docs")
 
+    time.sleep(2)  # Wait 2 seconds before next batch
     print(f"✅ Uploaded {count} games")
 
 # -------------------------
@@ -122,7 +123,7 @@ def main():
     TOTAL_GAMES = 20000  # Adjust for first run, then do the rest later
     LIMIT_PER_REQUEST = 500
 
-    for offset in range(0, TOTAL_GAMES, LIMIT_PER_REQUEST):
+    for offset in range(13000, TOTAL_GAMES, LIMIT_PER_REQUEST):
         print(f"Fetching games {offset} - {offset + LIMIT_PER_REQUEST} ...")
         games = fetch_games_from_igdb(offset=offset, limit=LIMIT_PER_REQUEST)
         transformed_games = [transform_game(game) for game in games]
