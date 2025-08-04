@@ -1,5 +1,6 @@
 import os
 import requests
+import json
 from google.cloud import firestore
 from google.oauth2 import service_account
 
@@ -19,7 +20,7 @@ FIRESTORE_PROJECT_ID = os.getenv("FIRESTORE_PROJECT_ID")
 COLLECTION_NAME = "games"
 
 # Get your JSON key string
-service_account_info = json.loads(os.getenv["SERVICE_ACCOUNT_JSON"])
+service_account_info = json.loads(os.getenv["FIREBASE_CREDENTIALS_JSON"])
 
 # Create credentials object from the dict
 credentials = service_account.Credentials.from_service_account_info(service_account_info)
