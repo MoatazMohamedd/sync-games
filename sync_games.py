@@ -8,7 +8,8 @@ from google.oauth2 import service_account
 # ✅ CONFIG SECTION
 # -------------------------
 
-
+# IGDB
+IGDB_CLIENT_ID = os.getenv("IGDB_CLIENT_ID")
 IGDB_ACCESS_TOKEN = os.getenv("IGDB_ACCESS_TOKEN")  # or get with client creds flow
 
 # Firestore
