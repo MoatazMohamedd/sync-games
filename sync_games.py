@@ -14,13 +14,12 @@ IGDB_ACCESS_TOKEN = os.getenv("IGDB_ACCESS_TOKEN")  # or get with client creds f
 
 # Firestore
 FIRESTORE_PROJECT_ID = os.getenv("FIRESTORE_PROJECT_ID")
-FIRESTORE_CREDENTIALS_FILE = "path/to/your/service-account.json"
 
 # Firestore collection name
 COLLECTION_NAME = "games"
 
 # Get your JSON key string
-service_account_info = json.loads(os.getenv["FIREBASE_CREDENTIALS_JSON"])
+service_account_info = json.loads(os.getenv["SERVICE_ACCOUNT_JSON"])
 
 # Create credentials object from the dict
 credentials = service_account.Credentials.from_service_account_info(service_account_info)
