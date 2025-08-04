@@ -8,9 +8,7 @@ from google.oauth2 import service_account
 # ✅ CONFIG SECTION
 # -------------------------
 
-# IGDB
-IGDB_CLIENT_ID = os.getenv("IGDB_CLIENT_ID")
-IGDB_CLIENT_SECRET = os.getenv("IGDB_CLIENT_SECRET")
+
 IGDB_ACCESS_TOKEN = os.getenv("IGDB_ACCESS_TOKEN")  # or get with client creds flow
 
 # Firestore
@@ -29,27 +27,13 @@ credentials = service_account.Credentials.from_service_account_info(service_acco
 db = firestore.Client(project=os.getenv("FIRESTORE_PROJECT_ID"), credentials=credentials)
 
 # -------------------------
-# ✅ Function: Get IGDB Token (Optional)
-# -------------------------
-def get_igdb_token():
-    url = f"https://id.twitch.tv/oauth2/token"
-    params = {
-        "client_id": IGDB_CLIENT_ID,
-        "client_secret": IGDB_CLIENT_SECRET,
-        "grant_type": "client_credentials"
-    }
-    resp = requests.post(url, params=params)
-    resp.raise_for_status()
-    return resp.json()["access_token"]
-
-# -------------------------
 # ✅ Function: Query IGDB
 # -------------------------
 def fetch_games_from_igdb(offset=0, limit=500):
     url = "https://api.igdb.com/v4/games"
     headers = {
         "Client-ID": IGDB_CLIENT_ID,
-        "Authorization": f"Bearer {get_igdb_token()}",
+        "Authorization": f"Bearer {IGDB_ACCESS_TOKEN}",
     }
 
     # Your filter
