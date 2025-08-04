@@ -49,7 +49,7 @@ def fetch_games_from_igdb(offset=0, limit=500):
     url = "https://api.igdb.com/v4/games"
     headers = {
         "Client-ID": IGDB_CLIENT_ID,
-        "Authorization": f"Bearer {IGDB_ACCESS_TOKEN}",
+        "Authorization": f"Bearer {get_igdb_token()}",
     }
 
     # Your filter
