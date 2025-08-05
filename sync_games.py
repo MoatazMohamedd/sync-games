@@ -108,7 +108,6 @@ def upload_games_to_firestore(games):
         batch.commit()
         print(f"Committed final batch of {count % 500} docs")
 
-    time.sleep(2)  # Wait 2 seconds before next batch
     print(f"✅ Uploaded {count} games")
 
 # -------------------------
