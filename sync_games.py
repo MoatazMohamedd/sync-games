@@ -132,8 +132,8 @@ def main():
         all_transformed_games.extend(transformed_games)
         upload_games_to_firestore(transformed_games)
 
-with open("games_backup.json", "w", encoding="utf-8") as f:
-    json.dump(all_transformed_games, f, ensure_ascii=False, indent=2)
+    with open("games_backup.json", "w", encoding="utf-8") as f:
+        json.dump(all_transformed_games, f, ensure_ascii=False, indent=2)
 
     print("✅ Saved local JSON: games_backup.json")
     print("🎉 Done!")
