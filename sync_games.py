@@ -39,7 +39,7 @@ def fetch_games_from_igdb(offset=0, limit=500):
 
     # Your filter
     body = f"""
-        fields id, name, cover.url, total_rating, themes, first_release_date, summary, genres.name,
+        fields id, name, cover.url, total_rating, storyline, first_release_date, summary, genres.name,
         player_perspectives.name, game_engines.name, game_modes.name, screenshots.url;
         where cover.height>= 0 & (hypes > 25 | total_rating > 50) & themes != 42 & game_type = 0;
         limit {limit};
