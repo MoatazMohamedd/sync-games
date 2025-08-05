@@ -41,7 +41,7 @@ def fetch_games_from_igdb(offset=0, limit=500):
     body = f"""
         fields id, name, cover.url, total_rating, themes, first_release_date, summary, genres.name,
         player_perspectives.name, game_engines.name, game_modes.name, screenshots.url;
-        where cover.height >= 0 & total_rating >= 50 & themes != 42;
+        where cover.height>= 0 & (hypes > 25 | total_rating > 50) & themes != 42 & game_type = 0;
         limit {limit};
         offset {offset};
     """
@@ -121,15 +121,21 @@ def main():
     # IGDB_ACCESS_TOKEN = get_igdb_token()
 
     # Total games you want to pull
-    TOTAL_GAMES = 20000  # Adjust for first run, then do the rest later
+    TOTAL_GAMES = 19888  # Adjust for first run, then do the rest later
     LIMIT_PER_REQUEST = 500
+    all_transformed_games = []
 
-    for offset in range(13000, TOTAL_GAMES, LIMIT_PER_REQUEST):
+    for offset in range(0, TOTAL_GAMES, LIMIT_PER_REQUEST):
         print(f"Fetching games {offset} - {offset + LIMIT_PER_REQUEST} ...")
         games = fetch_games_from_igdb(offset=offset, limit=LIMIT_PER_REQUEST)
         transformed_games = [transform_game(game) for game in games]
+        all_transformed_games.extend(transformed_games)
         upload_games_to_firestore(transformed_games)
 
+with open("games_backup.json", "w", encoding="utf-8") as f:
+    json.dump(all_transformed_games, f, ensure_ascii=False, indent=2)
+
+    print("✅ Saved local JSON: games_backup.json")
     print("🎉 Done!")
 
 if __name__ == "__main__":
