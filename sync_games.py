@@ -30,7 +30,7 @@ db = firestore.Client(project=os.getenv("FIRESTORE_PROJECT_ID"), credentials=cre
 # -------------------------
 # ✅ Function: Query IGDB
 # -------------------------
-def fetch_games_from_igdb(offset=500, limit=500):
+def fetch_games_from_igdb(offset=19500, limit=500):
     url = "https://api.igdb.com/v4/games"
     headers = {
         "Client-ID": IGDB_CLIENT_ID,
