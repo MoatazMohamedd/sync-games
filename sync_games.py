@@ -30,7 +30,7 @@ db = firestore.Client(project=os.getenv("FIRESTORE_PROJECT_ID"), credentials=cre
 # -------------------------
 # ✅ Function: Query IGDB
 # -------------------------
-def fetch_games_from_igdb(offset=19500, limit=500):
+def fetch_games_from_igdb(offset=0, limit=500):
     url = "https://api.igdb.com/v4/games"
     headers = {
         "Client-ID": IGDB_CLIENT_ID,
@@ -129,7 +129,7 @@ def main():
         games = fetch_games_from_igdb(offset=offset, limit=LIMIT_PER_REQUEST)
         transformed_games = [transform_game(game) for game in games]
         all_transformed_games.extend(transformed_games)
-        upload_games_to_firestore(transformed_games)
+       # upload_games_to_firestore(transformed_games)
 
     with open("games_backup.json", "w", encoding="utf-8") as f:
         json.dump(all_transformed_games, f, ensure_ascii=False, indent=2)

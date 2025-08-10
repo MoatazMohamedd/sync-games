@@ -1,7 +1,7 @@
 name: Firestore Sync
 
 on:
-  workflow_dispatch: # ← this means it runs manually!
+  workflow_dispatch: # runs manually
 
 jobs:
   sync-games:
@@ -10,6 +10,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
+        with:
+          persist-credentials: true # needed so we can push changes
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -29,3 +31,11 @@ jobs:
           IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
           IGDB_ACCESS_TOKEN: ${{ secrets.IGDB_ACCESS_TOKEN }}
         run: python sync_games.py
+
+      - name: Commit and push updated JSON
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add games_backup.json
+          git commit -m "Update games_backup.json from workflow" || echo "No changes to commit"
+          git push
