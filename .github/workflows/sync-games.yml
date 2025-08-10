@@ -3,6 +3,9 @@ name: Firestore Sync
 on:
   workflow_dispatch: # runs manually
 
+permissions:
+  contents: write # ✅ allow pushing changes
+
 jobs:
   sync-games:
     runs-on: ubuntu-latest
