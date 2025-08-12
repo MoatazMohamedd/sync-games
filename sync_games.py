@@ -20,6 +20,7 @@ if not (IGDB_CLIENT_ID and IGDB_ACCESS_TOKEN and FIRESTORE_PROJECT_ID and SERVIC
 
 # Firestore collection for daily homepage docs
 COLLECTION_NAME = "homepageData"
+DOCUMENT_NAME = "homepage"
 
 # Homepage sizes
 FEATURED_COUNT = 8
@@ -270,11 +271,8 @@ def build_popular_section():
 # UPLOAD
 # -------------------------
 def upload_homepage_doc(payload: dict):
-    today_str = datetime.utcnow().strftime("%Y-%m-%d")
-    doc_ref = db.collection(COLLECTION_NAME).document(today_str)
+    doc_ref = db.collection(COLLECTION_NAME).document(DOCUMENT_NAME)
     doc_ref.set(payload)
-    print(f"[upload] uploaded homepageData/{today_str}")
-
 
 # -------------------------
 # MAIN
