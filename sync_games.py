@@ -210,8 +210,8 @@ def build_genres_section(genre_name_to_id: dict):
 
 def build_popular_section():
     """
-    Build 'Popular' section with a custom trending score that favors
-    recency, hype, engagement, and rating — without permanently banning any game.
+    Build 'Popular' section with a custom trending score based on
+    hype, follows, rating, and recency — no IGDB 'popularity' field.
     """
 
     RECENT_RELEASE_DAYS = 180   # 6 months for strong boost
@@ -220,18 +220,16 @@ def build_popular_section():
 
     def calculate_trend_score(game):
         score = 0
-        popularity = game.get("popularity", 0) or 0
         hype = game.get("hypes", 0) or 0
         follows = game.get("follows", 0) or 0
         rating = game.get("total_rating", 0) or 0
         release_date = game.get("first_release_date")
         updated_at = game.get("updated_at")
 
-        # Base popularity & hype
-        score += popularity * 0.5
+        # Base hype, follows, and rating
         score += hype * 1.0
-        score += follows * 0.4
-        score += rating * 0.2
+        score += follows * 0.5
+        score += rating * 0.3
 
         # Recency boost / penalty
         if release_date:
@@ -241,7 +239,7 @@ def build_popular_section():
             elif days_since_release > MAX_GAME_AGE_DAYS:
                 score -= 40
 
-        # Recent updates also boost
+        # Recent updates boost
         if updated_at:
             days_since_update = (datetime.utcnow() - datetime.utcfromtimestamp(updated_at)).days
             if days_since_update <= RECENT_UPDATE_DAYS:
@@ -250,13 +248,13 @@ def build_popular_section():
         return score
 
     # Pull a wide pool from IGDB: avoid theme 42 (adult) & require covers
-    where = "cover.height>=0 & themes != 42 & game_type = 0 & popularity > 1"
+    where = "cover.height>=0 & themes != 42 & game_type = 0"
     raw_games = igdb_post("games", f"""
         fields id, name, cover.url, total_rating, storyline, first_release_date, summary, 
                genres.name, player_perspectives.name, game_engines.name, game_modes.name, 
-               screenshots.url, url, popularity, follows, hypes, updated_at;
+               screenshots.url, url, follows, hypes, updated_at;
         where {where};
-        sort popularity desc;
+        sort hypes desc;
         limit 300;
     """)
 
