@@ -209,50 +209,63 @@ def build_genres_section(genre_name_to_id: dict):
 
 
 def build_popular_section():
-    # Fetch popularity primitives per configured type
-    primitive_data = {}  # pop_type -> list of primitives
-    for pop_type in POP_PRIMITIVES.keys():
-        print(f"[popular] fetching primitives for type={pop_type}")
-        primitives = igdb_fetch_popularity_primitives(pop_type, POP_PRIMITIVE_LIMIT)
-        primitive_data[pop_type] = primitives
+    """
+    Build 'Popular' section with a custom trending score that favors
+    recency, hype, engagement, and rating — without permanently banning any game.
+    """
 
-    # Merge primitives by game_id
-    score_map = {}  # game_id -> {pop_type: value, ...}
-    for pop_type, primitives in primitive_data.items():
-        for p in primitives:
-            gid = p.get("game_id")
-            val = p.get("value", 0) or 0
-            if gid not in score_map:
-                score_map[gid] = {}
-            score_map[gid][pop_type] = val
+    RECENT_RELEASE_DAYS = 180   # 6 months for strong boost
+    MAX_GAME_AGE_DAYS = 1095    # 3 years, after which big penalty applies
+    RECENT_UPDATE_DAYS = 45     # boosts actively updated games
 
-    # Compute weighted score using weights in POP_PRIMITIVES
-    weighted_scores = []  # tuples (game_id, score)
-    for gid, vals in score_map.items():
-        score = 0.0
-        for pop_type, meta in POP_PRIMITIVES.items():
-            weight = meta["weight"]
-            v = vals.get(pop_type, 0.0)
-            score += weight * v
-        weighted_scores.append((gid, score))
+    def calculate_trend_score(game):
+        score = 0
+        popularity = game.get("popularity", 0) or 0
+        hype = game.get("hypes", 0) or 0
+        follows = game.get("follows", 0) or 0
+        rating = game.get("total_rating", 0) or 0
+        release_date = game.get("first_release_date")
+        updated_at = game.get("updated_at")
 
-    # Sort by score desc and pick top N
-    weighted_scores.sort(key=lambda x: x[1], reverse=True)
-    top_n = [gid for gid, s in weighted_scores[:POPULAR_COUNT]]
-    print(f"[popular] top game ids: {top_n}")
+        # Base popularity & hype
+        score += popularity * 0.5
+        score += hype * 1.0
+        score += follows * 0.4
+        score += rating * 0.2
 
-    # Fetch full game details for these top ids
-    games = []
-    if top_n:
-        # IGDB supports fetching multiple ids at once (limit by len(top_n))
-        raw = igdb_fetch_games_by_ids(top_n)
-        # transform order to match top_n ordering (IGDB may return in different order)
-        raw_map = {g["id"]: g for g in raw}
-        for gid in top_n:
-            g_raw = raw_map.get(gid)
-            if g_raw:
-                games.append(transform_game(g_raw))
-    return games
+        # Recency boost / penalty
+        if release_date:
+            days_since_release = (datetime.utcnow() - datetime.utcfromtimestamp(release_date)).days
+            if days_since_release <= RECENT_RELEASE_DAYS:
+                score += 25
+            elif days_since_release > MAX_GAME_AGE_DAYS:
+                score -= 40
+
+        # Recent updates also boost
+        if updated_at:
+            days_since_update = (datetime.utcnow() - datetime.utcfromtimestamp(updated_at)).days
+            if days_since_update <= RECENT_UPDATE_DAYS:
+                score += 15
+
+        return score
+
+    # Pull a wide pool from IGDB: avoid theme 42 (adult) & require covers
+    where = "cover.height>=0 & themes != 42 & game_type = 0 & popularity > 1"
+    raw_games = igdb_post("games", f"""
+        fields id, name, cover.url, total_rating, storyline, first_release_date, summary, 
+               genres.name, player_perspectives.name, game_engines.name, game_modes.name, 
+               screenshots.url, url, popularity, follows, hypes, updated_at;
+        where {where};
+        sort popularity desc;
+        limit 300;
+    """)
+
+    # Score and sort
+    scored = sorted(raw_games, key=calculate_trend_score, reverse=True)
+
+    # Take top N and transform
+    top_games = scored[:POPULAR_COUNT]
+    return [transform_game(g) for g in top_games]
 
 
 # -------------------------
