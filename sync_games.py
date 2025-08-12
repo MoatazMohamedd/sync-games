@@ -43,7 +43,7 @@ POP_PRIMITIVES = {
 }
 
 # How many primitives to fetch per type (top N). Adjust if you need wider coverage.
-POP_PRIMITIVE_LIMIT = 2000
+POP_PRIMITIVE_LIMIT = 500
 
 # IGDB client settings
 IGDB_HEADERS = {
