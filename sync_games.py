@@ -196,7 +196,7 @@ def build_genres_section(genre_name_to_id: dict):
             print(f"[genre] WARN: No IGDB id found for genre '{name}', skipping.")
             genres_out[name] = []
             continue
-        where = f"genres = {genre_id} & cover.height>=0 & themes != 42 & game_type = 0"
+        where = f"genres = {genre_id} & cover.height>=0 &  total_rating > 50 & themes != 42 & game_type = 0"
         total = igdb_count(where)
         limit = GENRE_COUNT
         if total <= 0:
