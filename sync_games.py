@@ -209,46 +209,153 @@ def build_genres_section(genre_name_to_id: dict):
     return genres_out
 
 
+# --------- New helpers for PopScore-backed popular section ---------
+def igdb_fetch_popularity_types():
+    """Return list of popularity types from IGDB (id/name)."""
+    return igdb_post("popularity_types", "fields id,name,description; limit 500;")
+
+def chunked(iterable, size):
+    it = list(iterable)
+    for i in range(0, len(it), size):
+        yield it[i:i+size]
+
 def build_popular_section():
     """
-    Build 'Popular' section with a custom trending score based on
-    hype, follows, rating, and recency — no IGDB 'popularity' field.
+    Replaces previous function. Uses IGDB popularity_primitives to build a candidate pool,
+    normalizes each primitive, merges with hypes/follows/ratings, and ranks.
     """
+    print("[popular] fetching popularity types...")
+    try:
+        pop_types = igdb_fetch_popularity_types()
+    except Exception as e:
+        print("[popular] failed to fetch popularity_types, falling back to simple pool:", e)
+        return _fallback_popular_section()
 
-    RECENT_RELEASE_DAYS = 180   # 6 months for strong boost
-    MAX_GAME_AGE_DAYS = 1095    # 3 years, after which big penalty applies
-    RECENT_UPDATE_DAYS = 45     # boosts actively updated games
+    # Choose types by keywords (tweak keywords if you want others)
+    desired_keywords = ("peak", "player", "player count", "page", "view", "want", "positive", "reviews")
+    selected_types = [t for t in pop_types if any(k in (t.get("name") or "").lower() for k in desired_keywords)]
+    if not selected_types:
+        print("[popular] no popularity types matched keywords, falling back")
+        return _fallback_popular_section()
 
-    def calculate_trend_score(game):
-        score = 0
-        hype = game.get("hypes", 0) or 0
-        follows = game.get("follows", 0) or 0
-        rating = game.get("total_rating", 0) or 0
-        release_date = game.get("first_release_date")
-        updated_at = game.get("updated_at")
+    selected_ids = [t["id"] for t in selected_types]
+    print(f"[popular] selected popularity types: {[t['name'] for t in selected_types]}")
 
-        # Base hype, follows, and rating
-        score += hype * 1.0
-        score += follows * 0.5
-        score += rating * 0.3
+    # Fetch top primitives per type
+    primitive_by_type = {}
+    max_value_by_type = {}
+    for tid in selected_ids:
+        try:
+            rows = igdb_fetch_popularity_primitives(tid, limit=POP_PRIMITIVE_LIMIT)
+            primitive_by_type[tid] = {r["game_id"]: r.get("value", 0) for r in rows if r.get("game_id") is not None}
+            max_value_by_type[tid] = max((r.get("value", 0) for r in rows), default=1)
+            print(f"[popular] type={tid} entries={len(primitive_by_type[tid])} max={max_value_by_type[tid]}")
+        except Exception as e:
+            print(f"[popular] failed to fetch primitives for type {tid}: {e}")
+            primitive_by_type[tid] = {}
+            max_value_by_type[tid] = 1
 
-        # Recency boost / penalty
+    # Candidate pool = union of all top primitive game_ids
+    candidate_ids = set()
+    for d in primitive_by_type.values():
+        candidate_ids.update(d.keys())
+
+    # Also include a fallback pool pulled by hypes/follows to catch other signals
+    try:
+        raw_fallback = igdb_post("games", """
+            fields id,hypes,follows,total_rating,first_release_date,updated_at,cover.url,url;
+            where cover.height>=0 & themes != 42 & game_type = 0;
+            sort hypes desc;
+            limit 500;
+        """)
+        candidate_ids.update([g["id"] for g in raw_fallback])
+        # keep max hypes/follows for normalization
+        max_hypes = max((g.get("hypes") or 0) for g in raw_fallback) or 1
+        max_follows = max((g.get("follows") or 0) for g in raw_fallback) or 1
+    except Exception:
+        max_hypes = max_follows = 1
+
+    if not candidate_ids:
+        print("[popular] no candidates found, falling back")
+        return _fallback_popular_section()
+
+    # Fetch full game details in batches
+    candidate_list = list(candidate_ids)
+    game_details = []
+    BATCH = 200
+    for chunk in chunked(candidate_list, BATCH):
+        try:
+            game_details.extend(igdb_fetch_games_by_ids(chunk))
+        except Exception as e:
+            print("[popular] error fetching game batch:", e)
+
+    # Prepare normalization values for hypes/follows/ratings present in our candidate pool
+    max_hypes_in_pool = max((g.get("hypes") or 0) for g in game_details) or 1
+    max_follows_in_pool = max((g.get("follows") or 0) for g in game_details) or 1
+    max_rating = max((g.get("total_rating") or 0) for g in game_details) or 100.0
+
+    # Weights: tweak to taste. Sum approx 1.0 (primitives share a chunk)
+    weight_primitives = 0.6
+    weight_hypes = 0.15
+    weight_follows = 0.1
+    weight_rating = 0.15
+
+    # For primitives, distribute weight_primitives equally among chosen types
+    if selected_ids:
+        per_primitive_weight = weight_primitives / len(selected_ids)
+    else:
+        per_primitive_weight = 0
+
+    # helper for recency
+    RECENT_RELEASE_DAYS = 180
+    MAX_GAME_AGE_DAYS = 1095
+    RECENT_UPDATE_DAYS = 45
+
+    def compute_score(g):
+        gid = g["id"]
+        score = 0.0
+
+        # primitives normalized
+        for tid in selected_ids:
+            raw_val = primitive_by_type.get(tid, {}).get(gid, 0)
+            max_val = max_value_by_type.get(tid, 1) or 1
+            score += per_primitive_weight * (raw_val / max_val)
+
+        # hypes/follows/rating normalized
+        score += weight_hypes * ((g.get("hypes") or 0) / max_hypes_in_pool)
+        score += weight_follows * ((g.get("follows") or 0) / max_follows_in_pool)
+        score += weight_rating * ((g.get("total_rating") or 0) / max_rating)
+
+        # recency boosts / penalties
+        release_date = g.get("first_release_date")
+        updated_at = g.get("updated_at")
         if release_date:
-            days_since_release = (datetime.utcnow() - datetime.utcfromtimestamp(release_date)).days
-            if days_since_release <= RECENT_RELEASE_DAYS:
-                score += 25
-            elif days_since_release > MAX_GAME_AGE_DAYS:
-                score -= 40
+            try:
+                days_since_release = (datetime.utcnow() - datetime.utcfromtimestamp(release_date)).days
+                if days_since_release <= RECENT_RELEASE_DAYS:
+                    score += 0.25  # small fixed boost for recent releases
+                elif days_since_release > MAX_GAME_AGE_DAYS:
+                    score -= 0.25
+            except Exception:
+                pass
 
-        # Recent updates boost
         if updated_at:
-            days_since_update = (datetime.utcnow() - datetime.utcfromtimestamp(updated_at)).days
-            if days_since_update <= RECENT_UPDATE_DAYS:
-                score += 15
+            try:
+                days_since_update = (datetime.utcnow() - datetime.utcfromtimestamp(updated_at)).days
+                if days_since_update <= RECENT_UPDATE_DAYS:
+                    score += 0.15
+            except Exception:
+                pass
 
         return score
 
-    # Pull a wide pool from IGDB: avoid theme 42 (adult) & require covers
+    # Score and pick the top N
+    scored = sorted(game_details, key=compute_score, reverse=True)[:POPULAR_COUNT]
+    return [transform_game(g) for g in scored]
+
+
+def _fallback_popular_section():
+    # your original quick fallback (keeps previous behaviour)
     where = "cover.height>=0 & themes != 42 & game_type = 0"
     raw_games = igdb_post("games", f"""
         fields id, name, cover.url, total_rating, storyline, first_release_date, summary, 
@@ -258,11 +365,7 @@ def build_popular_section():
         sort hypes desc;
         limit 300;
     """)
-
-    # Score and sort
-    scored = sorted(raw_games, key=calculate_trend_score, reverse=True)
-
-    # Take top N and transform
+    scored = sorted(raw_games, key=lambda g: (g.get("hypes") or 0) + (g.get("follows") or 0), reverse=True)
     top_games = scored[:POPULAR_COUNT]
     return [transform_game(g) for g in top_games]
 
