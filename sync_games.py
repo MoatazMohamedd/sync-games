@@ -211,8 +211,8 @@ def build_genres_section(genre_name_to_id: dict):
 
 # --------- New helpers for PopScore-backed popular section ---------
 def igdb_fetch_popularity_types():
-    """Return list of popularity types from IGDB (id/name)."""
-    return igdb_post("popularity_types", "fields id,name,description; limit 500;")
+    """Return list of popularity types from IGDB (id, name)."""
+    return igdb_post("popularity_types", "fields id,name; limit 500;")
 
 def chunked(iterable, size):
     it = list(iterable)
