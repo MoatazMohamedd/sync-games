@@ -143,7 +143,7 @@ def transform_game(raw_game: dict) -> dict:
     def format_screenshot_url(url):
         if not url:
             return None
-        return "https:" + url.replace("t_thumb", "t_screenshot_med")
+        return "https:" + url.replace("t_thumb", "t_screenshot_huge")
 
     transformed = {
         "id": raw_game.get("id"),
